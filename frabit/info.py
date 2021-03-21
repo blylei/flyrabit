@@ -28,35 +28,6 @@ TypedFile = collections.namedtuple('ConfFile', 'file_type path')
 _logger = logging.getLogger(__name__)
 
 
-def output_tablespace_list(tablespaces):
-    """
-    Return the literal representation of tablespaces as a Python string
-
-    :param tablespaces tablespaces: list of Tablespaces objects
-    :return str: Literal representation of tablespaces
-    """
-    if tablespaces:
-        return repr([tuple(item) for item in tablespaces])
-    else:
-        return None
-
-
-def load_tablespace_list(string):
-    """
-    Load the tablespaces as a Python list of namedtuple
-    Uses ast to evaluate information about tablespaces.
-    The returned list is used to create a list of namedtuple
-
-    :param str string:
-    :return list: list of namedtuple representing all the tablespaces
-    """
-    obj = ast.literal_eval(string)
-    if obj:
-        return [Tablespace._make(item) for item in obj]
-    else:
-        return None
-
-
 def null_repr(obj):
     """
     Return the literal representation of an object
