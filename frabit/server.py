@@ -1,4 +1,4 @@
-# (c) 2020 Frabit Project maintained and limited by Blylei < blylei918@gmail.com >
+# (c) 2020 Frabit Project maintained and limited by Blylei < blylei.info@gmail.com >
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 #
 # This file is part of Frabit
@@ -25,26 +25,22 @@ import frabit
 from frabit import output
 from frabit.backup import BackupManager
 from frabit.command_wrappers import FrabitSubProcess, Command, Rsync
-from frabit.exceptions import (ArchiverFailure, BadXlogSegmentName,
+from frabit.exceptions import (ArchiverFailure,
                                CommandFailedException, ConninfoException,
                                LockFileBusy, LockFileException,
                                LockFilePermissionDenied,
-                               MysqlDuplicateReplicationSlot,
                                MysqlException,
-                               MysqlInvalidReplicationSlot,
                                MysqlIsInRecovery,
-                               MysqlReplicationSlotInUse,
-                               MysqlReplicationSlotsFull,
                                MysqlSuperuserRequired,
                                MysqlUnsupportedFeature, SyncError,
                                SyncNothingToDo, SyncToBeDeleted, TimeoutError,
                                UnknownBackupIdException)
-from frabit.info import BackupInfo, LocalBackupInfo, WalFileInfo
+from frabit.info import BackupInfo, LocalBackupInfo, BinlogInfo
 from frabit.lock import (ServerBackupIdLock, ServerBackupLock,
                          ServerBackupSyncLock, ServerCronLock,
-                         ServerWalArchiveLock, ServerWalReceiveLock,
-                         ServerBinlogSyncLock, ServerXLOGDBLock)
-from frabit.mysql import MySQLConnection, StreamingConnection
+                         ServerWalArchiveLock, ServerBinlogSyncLock
+                         )
+from frabit.mysql import MySQLConnection
 from frabit.process import ProcessManager
 from frabit.remote_status import RemoteStatusMixin
 from frabit.retention_policies import RetentionPolicyFactory
@@ -57,9 +53,6 @@ PRIMARY_INFO_FILE = 'primary.info'
 SYNC_WALS_INFO_FILE = 'sync-wals.info'
 
 _logger = logging.getLogger(__name__)
-
-# NamedTuple for a better readability of SyncWalInfo
-SyncWalInfo = namedtuple('SyncWalInfo', 'last_wal last_position')
 
 
 class CheckStrategy(object):
@@ -181,8 +174,6 @@ class Server(RemoteStatusMixin):
     This class represents the MySQL server to backup.
     """
 
-    XLOG_DB = "xlog.db"
-
     # the strategy for the management of the results of the various checks
     __default_check_strategy = CheckOutputStrategy()
 
@@ -202,7 +193,7 @@ class Server(RemoteStatusMixin):
         self.passive_node = config.primary_ssh_command is not None
 
         self.enforce_retention_policies = False
-        self.postgres = None
+        self.mysqld = None
         self.streaming = None
         self.archivers = []
 
@@ -220,23 +211,6 @@ class Server(RemoteStatusMixin):
                 self.config.disabled = True
                 self.config.msg_list.append(
                     "MySQL connection: " + force_str(e).strip())
-
-            # Initialize the streaming PostgreSQL connection only when
-            # backup_method is postgres or the streaming_archiver is in use
-            if config.backup_method == 'postgres' or config.streaming_archiver:
-                try:
-                    if config.streaming_conninfo is None:
-                        raise ConninfoException(
-                            "Missing 'streaming_conninfo' parameter for "
-                            "server '%s'"
-                            % config.name)
-                    self.streaming = StreamingConnection(
-                        config.streaming_conninfo)
-                # If the StreamingConnection creation fails, disable the server
-                except ConninfoException as e:
-                    self.config.disabled = True
-                    self.config.msg_list.append(
-                        "Streaming connection: " + force_str(e).strip())
 
         # Initialize the backup manager
         self.backup_manager = BackupManager(self)
@@ -324,28 +298,11 @@ class Server(RemoteStatusMixin):
             try:
                 self.config.bandwidth_limit = int(self.config.bandwidth_limit)
             except ValueError:
-                _logger.warning('Invalid bandwidth_limit "%s" for server "%s" '
-                                '(fallback to "0")' % (
-                                    self.config.bandwidth_limit,
-                                    self.config.name))
+                _logger.warning('Invalid bandwidth_limit "{bd_limit}" for server "{name}" (fallback to "0")'.format(
+                                    bd_limit=self.config.bandwidth_limit,
+                                    name=self.config.name)
+                )
                 self.config.bandwidth_limit = None
-
-        # set tablespace_bandwidth_limit
-        if self.config.tablespace_bandwidth_limit:
-            rules = {}
-            for rule in self.config.tablespace_bandwidth_limit.split():
-                try:
-                    key, value = rule.split(':', 1)
-                    value = int(value)
-                    if value != self.config.bandwidth_limit:
-                        rules[key] = value
-                except ValueError:
-                    _logger.warning(
-                        "Invalid tablespace_bandwidth_limit rule '%s'" % rule)
-            if len(rules) > 0:
-                self.config.tablespace_bandwidth_limit = rules
-            else:
-                self.config.tablespace_bandwidth_limit = None
 
         # Set minimum redundancy (default 0)
         if self.config.minimum_redundancy.isdigit():
@@ -449,7 +406,7 @@ class Server(RemoteStatusMixin):
                     json.dump(
                         {
                             "systemid": systemid,
-                            "version": self.postgres.server_major_version
+                            "version": self.mysqld.server_major_version
                         },
                         fp,
                         indent=4,
@@ -479,8 +436,8 @@ class Server(RemoteStatusMixin):
         """
         Close all the open connections to PostgreSQL
         """
-        if self.postgres:
-            self.postgres.close()
+        if self.mysqld:
+            self.mysqld.close()
         if self.streaming:
             self.streaming.close()
 
@@ -1013,8 +970,8 @@ class Server(RemoteStatusMixin):
         """
         result = {}
         # Merge status for a postgres connection
-        if self.postgres:
-            result.update(self.postgres.get_remote_status())
+        if self.mysqld:
+            result.update(self.mysqld.get_remote_status())
         # Merge status for a streaming connection
         if self.streaming:
             result.update(self.streaming.get_remote_status())
@@ -2429,11 +2386,11 @@ class Server(RemoteStatusMixin):
                 # If called with force, execute a checkpoint before the
                 # switch_wal command
                 _logger.info('Force a CHECKPOINT before pg_switch_wal()')
-                self.postgres.checkpoint()
+                self.mysqld.checkpoint()
 
             # Perform the switch_wal. expect a WAL name only if the switch
             # has been successfully executed, False otherwise.
-            closed_wal = self.postgres.switch_wal()
+            closed_wal = self.mysqld.switch_wal()
             if closed_wal is None:
                 # Something went wrong during the execution of the
                 # pg_switch_wal command
@@ -2532,13 +2489,13 @@ class Server(RemoteStatusMixin):
         else:
             client_type = MySQLConnection.ANY_STREAMING_CLIENT
         try:
-            standby_info = self.postgres.get_replication_stats(client_type)
+            standby_info = self.mysqld.get_replication_stats(client_type)
             if standby_info is None:
                 output.error('Unable to connect to server %s' %
                              self.config.name)
             else:
                 output.result('replication_status', self.config.name,
-                              target, self.postgres.current_xlog_location,
+                              target, self.mysqld.current_xlog_location,
                               standby_info)
         except MysqlUnsupportedFeature as e:
             output.info("  Requires MySQL %s or higher", e)
