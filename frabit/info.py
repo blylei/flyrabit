@@ -391,8 +391,6 @@ class BackupInfo(FieldListFile):
     pgdata = Field('pgdata')
     # Parse the tablespaces as a literal Python list of namedtuple
     # Output the tablespaces as a literal Python list of tuple
-    tablespaces = Field('tablespaces', load=load_tablespace_list,
-                        dump=output_tablespace_list)
     # Timeline is an integer
     timeline = Field('timeline', load=int)
     begin_time = Field('begin_time', load=load_datetime_tz)
