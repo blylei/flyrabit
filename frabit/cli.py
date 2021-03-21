@@ -1279,8 +1279,7 @@ def main():
     """
     p = ArghParser(epilog='Frabit by Frabit (www.frabit.com)')
     p.add_argument('-v', '--version', action='version',
-                   version='%s\n\nFrabit by Frabit (www.frabit.com)''
-                           % frabit.__version__)
+                   version='{version}\n\nFrabit by Frabit (www.frabit.com)'.format(version=frabit.__version__))
     p.add_argument('-c', '--config',
                    help='uses a configuration file (defaults: %s)'
                         % ', '.join(frabit.config.Config.CONFIG_FILES),
