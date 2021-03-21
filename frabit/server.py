@@ -1310,7 +1310,7 @@ class Server(RemoteStatusMixin):
             target_tli, _, _ = xlog.decode_segment_name(end)
         with self.xlogdb() as fxlogdb:
             for line in fxlogdb:
-                wal_info = WalFileInfo.from_xlogdb_line(line)
+                wal_info = WalFileInfo.from_binlog_line(line)
                 # Handle .history files: add all of them to the output,
                 # regardless of their age
                 if xlog.is_history_file(wal_info.name):
@@ -1328,7 +1328,7 @@ class Server(RemoteStatusMixin):
                         break
             # return all the remaining history files
             for line in fxlogdb:
-                wal_info = WalFileInfo.from_xlogdb_line(line)
+                wal_info = WalFileInfo.from_binlog_line(line)
                 if xlog.is_history_file(wal_info.name):
                     yield wal_info
 
@@ -1350,7 +1350,7 @@ class Server(RemoteStatusMixin):
 
         with self.xlogdb() as fxlogdb:
             for line in fxlogdb:
-                wal_info = WalFileInfo.from_xlogdb_line(line)
+                wal_info = WalFileInfo.from_binlog_line(line)
                 # Handle .history files: add all of them to the output,
                 # regardless of their age, if requested (the 'include_history'
                 # parameter is True)
@@ -1480,7 +1480,7 @@ class Server(RemoteStatusMixin):
 
             # evaluation of compression ratio for basebackup WAL files
             wal_info['wal_theoretical_size'] = \
-                wal_info['wal_num'] * float(backup_info.xlog_segment_size)
+                wal_info['wal_num'] * float(backup_info.binlog_file_size)
             try:
                 wal_size = wal_info['wal_size']
                 wal_info['wal_compression_ratio'] = (
@@ -1491,7 +1491,7 @@ class Server(RemoteStatusMixin):
             # evaluation of compression ratio of WAL files
             wal_until_next_num = wal_info['wal_until_next_num']
             wal_info['wal_until_next_theoretical_size'] = (
-                wal_until_next_num * float(backup_info.xlog_segment_size))
+                wal_until_next_num * float(backup_info.binlog_file_size))
             try:
                 wal_until_next_size = wal_info['wal_until_next_size']
                 until_next_theoretical_size = (
@@ -1569,7 +1569,7 @@ class Server(RemoteStatusMixin):
                 # files at backup time. Because of this, we generate all
                 # the possible names for a WAL segment, and then we check
                 # if the requested one is included.
-                wal_peek_list = xlog.generate_segment_names(wal_name)
+                wal_peek_list = xlog.generate_binlog_names(wal_name)
             else:
                 wal_peek_list = iter([wal_name])
 
@@ -1613,7 +1613,7 @@ class Server(RemoteStatusMixin):
                 # If the file doesn't exists we will terminate because
                 # zero is not a power of two
                 wal_peek_name = xlog.encode_segment_name(tli, log, seg)
-                wal_peek_list = xlog.generate_segment_names(wal_peek_name)
+                wal_peek_list = xlog.generate_binlog_names(wal_peek_name)
 
             # Do not output anything else
             return
@@ -2697,7 +2697,7 @@ class Server(RemoteStatusMixin):
             wal_info = None
             for line in fxlogdb:
                 # Parse the line
-                wal_info = WalFileInfo.from_xlogdb_line(line)
+                wal_info = WalFileInfo.from_binlog_line(line)
                 # Check if user is requesting data that is not available.
                 # TODO: probably the check should be something like
                 # TODO: last_wal + 1 < wal_info.name
@@ -3359,7 +3359,7 @@ class Server(RemoteStatusMixin):
                     # update xlog.db using the list of WalFileInfo object
                     with self.xlogdb('a') as fxlogdb:
                         for wal_info in local_wals:
-                            fxlogdb.write(wal_info.to_xlogdb_line())
+                            fxlogdb.write(wal_info.to_binlog_line())
                     # We need to update the sync-wals.info file with the latest
                     # synchronised WAL and the latest read position.
                     self.write_sync_wals_info_file(primary_info)

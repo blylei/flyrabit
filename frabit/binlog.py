@@ -209,8 +209,8 @@ def xlog_segment_mask(xlog_segment_size):
     return xlog_segment_size * xlog_segments_per_file(xlog_segment_size)
 
 
-def generate_segment_names(begin, end=None, version=None,
-                           xlog_segment_size=None):
+def generate_binlog_names(begin, end=None, version=None,
+                          xlog_segment_size=None):
     """
     Generate a sequence of XLOG segments starting from ``begin``
     If an ``end`` segment is provided the sequence will terminate after

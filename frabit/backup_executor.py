@@ -153,7 +153,7 @@ class BackupStrategy(ABCMeta):
 
         # Set binlog file size
         backup_info.set_attribute('max_binlog_size',
-                                  self.mysql.xlog_segment_size)
+                                  self.mysql.binlog_file_size)
 
         # Set configuration files location
         cf = self.mysql.get_configuration_files()

@@ -63,8 +63,8 @@ class Field(object):
         """
         Field descriptor to be used with a FieldListFile subclass.
 
-        The resulting field is like a normal attribute with
-        two optional associated function: to_str and from_str
+        The resulting field is like a normal attribute with two optional associated function:
+        to_str and from_str
 
         The Field descriptor can also be used as a decorator
 
@@ -111,9 +111,6 @@ class Field(object):
 
 
 class FieldListFile(object):
-
-    __slots__ = ('_fields', 'filename')
-
     def __init__(self, **kwargs):
         """
         Represent a predefined set of keys with the associated value.
@@ -142,8 +139,7 @@ class FieldListFile(object):
     @classmethod
     def from_meta_file(cls, filename):
         """
-        Factory method that read the specified file and build
-        an object with its content.
+        Factory method that read the specified file and build an object with its content.
 
         :param str filename: the file to read
         """
@@ -157,8 +153,8 @@ class FieldListFile(object):
 
         If a file_object is specified it will be used.
 
-        If the filename is not specified it uses the one memorized in the
-        filename attribute. If neither the filename attribute and parameter are
+        If the filename is not specified it uses the one memorized in the filename attribute.
+        If neither the filename attribute and parameter are
         set a ValueError exception is raised.
 
         :param str filename: path of the file to write
@@ -176,16 +172,14 @@ class FieldListFile(object):
                 info = None
 
         if not info:
-            raise ValueError(
-                'either a valid filename or a file_object must be specified')
-
+            raise ValueError('either a valid filename or a file_object must be specified')
         try:
             for name, field in sorted(inspect.getmembers(type(self))):
                 value = getattr(self, name, None)
                 if isinstance(field, Field):
                     if callable(field.to_str):
                         value = field.to_str(value)
-                    info.write(("%s=%s\n" % (name, value)).encode('UTF-8'))
+                    info.write(("{name}={value}\n".format(name=name, value=value)).encode('UTF-8'))
         finally:
             if not file_object:
                 info.close()
@@ -196,8 +190,7 @@ class FieldListFile(object):
 
     def load(self, filename=None, file_object=None):
         """
-        Replaces the current object content with the one deserialized from
-        the provided file.
+        Replaces the current object content with the one deserialized from the provided file.
 
         This method set the filename attribute.
 
@@ -266,17 +259,13 @@ class FieldListFile(object):
                 yield (name, value)
 
     def __repr__(self):
-        return "%s(%s)" % (
-            self.__class__.__name__,
-            ', '.join(['%s=%r' % x for x in self.items()]))
+        return "%s(%s)" % (self.__class__.__name__, ', '.join(['%s=%r' % x for x in self.items()]))
 
 
 class BinlogInfo(FieldListFile):
     """
     Metadata of a Binlog file.
     """
-
-    __slots__ = ('orig_filename',)
 
     name = Field('name', doc='base name of Binlog file')
     size = Field('size', load=int, doc='Binlog file size after compression')
@@ -310,9 +299,9 @@ class BinlogInfo(FieldListFile):
         obj.orig_filename = filename
         return obj
 
-    def to_xlogdb_line(self):
+    def to_binlog_line(self):
         """
-        Format the content of this object as a xlogdb line.
+        Format the content of this object as a binlog line.
         """
         return "%s\t%s\t%s\t%s\n" % (
             self.name,
@@ -321,12 +310,12 @@ class BinlogInfo(FieldListFile):
             self.compression)
 
     @classmethod
-    def from_xlogdb_line(cls, line):
+    def from_binlog_line(cls, line):
         """
         Parse a line from xlog catalogue
 
         :param str line: a line in the wal database to parse
-        :rtype: WalFileInfo
+        :rtype: BinlogInfo
         """
         try:
             name, size, time, compression = line.split()
@@ -353,7 +342,7 @@ class BinlogInfo(FieldListFile):
 
     def relpath(self):
         """
-        Returns the WAL file path relative to the server's wals_directory
+        Returns the binlog file path relative to the server's binlog files_directory
         """
         return os.path.join(binlog.hash_dir(self.name), self.name)
 
@@ -388,37 +377,25 @@ class BackupInfo(FieldListFile):
     RETENTION_STATUS = (OBSOLETE, VALID, POTENTIALLY_OBSOLETE, NONE)
 
     version = Field('version', load=int)
-    pgdata = Field('pgdata')
-    # Parse the tablespaces as a literal Python list of namedtuple
-    # Output the tablespaces as a literal Python list of tuple
     # Timeline is an integer
     timeline = Field('timeline', load=int)
     begin_time = Field('begin_time', load=load_datetime_tz)
-    begin_xlog = Field('begin_xlog')
-    begin_wal = Field('begin_wal')
     begin_offset = Field('begin_offset', load=int)
     size = Field('size', load=int)
-    deduplicated_size = Field('deduplicated_size', load=int)
     end_time = Field('end_time', load=load_datetime_tz)
-    end_xlog = Field('end_xlog')
-    end_wal = Field('end_wal')
+    begin_binlog = Field('begin_binlog')
+    end_binlog = Field('end_binlog')
     end_offset = Field('end_offset', load=int)
     status = Field('status', default=EMPTY)
     server_name = Field('server_name')
     error = Field('error')
     mode = Field('mode')
     config_file = Field('config_file')
-    hba_file = Field('hba_file')
-    ident_file = Field('ident_file')
-    included_files = Field('included_files',
-                           load=ast.literal_eval, dump=null_repr)
+    included_files = Field('included_files', load=ast.literal_eval, dump=null_repr)
     backup_label = Field('backup_label', load=ast.literal_eval, dump=null_repr)
     copy_stats = Field('copy_stats', load=ast.literal_eval, dump=null_repr)
-    xlog_segment_size = Field('xlog_segment_size', load=int,
-                              default=binlog.DEFAULT_XLOG_SEG_SIZE)
-    systemid = Field('systemid')
+    binlog_file_size = Field('binlog_file_size', load=int, default=binlog.DEFAULT_XLOG_SEG_SIZE)
 
-    __slots__ = 'backup_id', 'backup_version'
 
     def __init__(self, backup_id, **kwargs):
         """
@@ -434,10 +411,10 @@ class BackupInfo(FieldListFile):
         """
         Get the list of required binlog files for the current backup
         """
-        return binlog.generate_segment_names(
-            self.begin_wal, self.end_wal,
+        return binlog.generate_binlog_names(
+            self.begin_binlog, self.end_binlog,
             self.version,
-            self.xlog_segment_size)
+            self.binlog_file_size)
 
     def set_attribute(self, key, value):
         """
@@ -496,7 +473,6 @@ class BackupInfo(FieldListFile):
 
 
 class LocalBackupInfo(BackupInfo):
-    __slots__ = 'server', 'config', 'backup_manager'
 
     def __init__(self, server, info_file=None, backup_id=None, **kwargs):
         """
@@ -520,8 +496,7 @@ class LocalBackupInfo(BackupInfo):
         if backup_id:
             # Cannot pass both info_file and backup_id
             if info_file:
-                raise BackupInfoBadInitialisation(
-                    'both info_file and backup_id parameters are set')
+                raise BackupInfoBadInitialisation('both info_file and backup_id parameters are set')
             self.backup_id = backup_id
             self.filename = self.get_filename()
             # Check if a backup info file for a given server and a given ID
@@ -539,15 +514,6 @@ class LocalBackupInfo(BackupInfo):
         elif not info_file:
             raise BackupInfoBadInitialisation(
                 'backup_id and info_file parameters are both unset')
-        # Manage backup version for new backup structure
-        try:
-            # the presence of pgdata directory is the marker of version 1
-            if self.backup_id is not None and os.path.exists(
-                    os.path.join(self.get_basebackup_directory(), 'pgdata')):
-                self.backup_version = 1
-        except Exception as e:
-            _logger.warning("Error detecting backup_version, "
-                            "use default: 2. Failure reason: %s", e)
 
     def get_list_of_files(self, target):
         """
@@ -585,47 +551,6 @@ class LocalBackupInfo(BackupInfo):
         return os.path.join(self.config.basebackups_directory,
                             self.backup_id)
 
-    def get_data_directory(self, tablespace_oid=None):
-        """
-        Get path to the backup data dir according with the backup version
-
-        If tablespace_oid is passed, build the path to the tablespace
-        base directory, according with the backup version
-
-        :param int tablespace_oid: the oid of a valid tablespace
-        """
-        # Check if a tablespace oid is passed and if is a valid oid
-        if tablespace_oid is not None:
-            if self.tablespaces is None:
-                raise ValueError("Invalid tablespace OID %s" % tablespace_oid)
-
-            invalid_oid = all(
-                str(tablespace_oid) != str(tablespace.oid)
-                for tablespace in self.tablespaces)
-            if invalid_oid:
-                raise ValueError("Invalid tablespace OID %s" % tablespace_oid)
-
-        # Build the requested path according to backup_version value
-        path = [self.get_basebackup_directory()]
-        # Check the version of the backup
-        if self.backup_version == 2:
-            # If an oid has been provided, we are looking for a tablespace
-            if tablespace_oid is not None:
-                # Append the oid to the basedir of the backup
-                path.append(str(tablespace_oid))
-            else:
-                # Looking for the data dir
-                path.append('data')
-        else:
-            # Backup v1, use pgdata as base
-            path.append('pgdata')
-            # If a oid has been provided, we are looking for a tablespace.
-            if tablespace_oid is not None:
-                # Append the path to pg_tblspc/oid folder inside pgdata
-                path.extend(('pg_tblspc', str(tablespace_oid)))
-        # Return the built path
-        return os.path.join(*path)
-
     def get_filename(self):
         """
         Get the default filename for the backup.info file based on
@@ -640,5 +565,4 @@ class LocalBackupInfo(BackupInfo):
             dir_name = os.path.dirname(filename)
             if not os.path.exists(dir_name):
                 os.makedirs(dir_name)
-        super(LocalBackupInfo, self).save(filename=filename,
-                                          file_object=file_object)
+        super(LocalBackupInfo, self).save(filename=filename, file_object=file_object)
