@@ -417,9 +417,8 @@ def recover(args):
     backup_id = parse_backup_id(server, args)
     if backup_id.status not in BackupInfo.STATUS_COPY_DONE:
         output.error(
-            "Cannot recover from backup '%s' of server '%s': "
-            "backup status is not DONE",
-            args.backup_id, server.config.name)
+            "Cannot recover from backup '{id}' of server '{name}': ""backup status is not DONE".format(
+                id=args.backup_id, name=server.config.name))
         output.close_and_exit()
 
     # decode the tablespace relocation rules
@@ -1276,15 +1275,14 @@ def parse_backup_id(server, args):
 
 def main():
     """
-    The main method of Barman
+    The main method of Frabit
     """
-    p = ArghParser(epilog='Barman by 2ndQuadrant (www.2ndQuadrant.com)')
+    p = ArghParser(epilog='Frabit by Frabit (www.frabit.com)')
     p.add_argument('-v', '--version', action='version',
-                   version='%s\n\nBarman by 2ndQuadrant (www.2ndQuadrant.com)'
+                   version='%s\n\nFrabit by Frabit (www.frabit.com)''
                            % frabit.__version__)
     p.add_argument('-c', '--config',
-                   help='uses a configuration file '
-                        '(defaults: %s)'
+                   help='uses a configuration file (defaults: %s)'
                         % ', '.join(frabit.config.Config.CONFIG_FILES),
                    default=SUPPRESS)
     p.add_argument('--color', '--colour',
