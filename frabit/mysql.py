@@ -103,16 +103,6 @@ class MySQL:
         """
         return ' '.join(["%s=%s" % (k, v) for k, v in sorted(parameters.items())])
 
-    def get_connection_string(self):
-        """
-        Return the connection string, adding the application_name parameter
-        if requested, unless already defined by user in the connection string
-
-        :return str: the connection string
-        """
-        conn_string = self.conninfo
-        return conn_string
-
     def connect(self):
         """
         Generic function for MySQL connection (using mysql-connector-python)
@@ -120,7 +110,7 @@ class MySQL:
 
         if not self._check_connection():
             try:
-                self._conn = mysql.connector.connect(self.conninfo)
+                self._conn = mysql.connector.connect(self.conn_parameters)
             # If mysql-connector-python fails to connect to the host, raise the appropriate exception
             except connector.PoolError as e:
                 raise MysqlConnectError(force_str(e).strip())
@@ -178,16 +168,17 @@ class MySQL:
         """
         Return a cursor
         """
-        conn = self.connect()
-        return conn.cursor(*args, **kwargs)
+        cnx = self.connect()
+        return cnx.cursor(*args, **kwargs)
 
     @property
     def server_version(self):
         """
         Version of MySQL (returned by mysql-connector-python)
         """
-        conn = self.connect()
-        return conn.server_version
+        cnx = self.connect()
+        version = cnx.get_server_info()
+        return simplify_version(version)
 
 class MySQLConnection(MySQL):
     """

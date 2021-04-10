@@ -349,15 +349,8 @@ def simplify_version(version_string):
     """
     if version_string is None:
         return None
-    version = version_string.split('.')
-    # If a development/beta/rc version, split out the string part
-    unreleased = re.search(r'[^0-9.]', version[-1])
-    if unreleased:
-        last_component = version.pop()
-        number = last_component[:unreleased.start()]
-        string = last_component[unreleased.start():]
-        version += [number, string]
-    return '.'.join(version[:-1])
+    version = version_string.split('-')
+    return version[0]
 
 
 def with_metaclass(meta, *bases):

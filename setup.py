@@ -41,8 +41,8 @@ if sys.version_info < (2, 7):
         ]
 
 frabit = {}
-with open('frabit/version.py', 'r') as fversion:
-    exec(fversion.read(), frabit)
+with open('frabit/version.py', 'r') as version:
+    exec(version.read(), frabit)
 
 setup(
     name='frabit',
@@ -69,7 +69,7 @@ setup(
         'Topic :: System :: Archiving :: Backup',
         'Topic :: Database',
         'Topic :: System :: Recovery Tools',
-        'Intended Audience :: System Administrators',
+        'Intended Audience :: Database Administrators',
         'License :: OSI Approved :: GNU General Public License v3 or later '
         '(GPLv3+)',
         'Programming Language :: Python',

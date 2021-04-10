@@ -74,8 +74,7 @@ class ProcessManager:
                         break
                     # If there is a pid save it in the process list
                     if pid:
-                        self.process_list.append(
-                            ProcessInfo(pid, config.name, task))
+                        self.process_list.append(ProcessInfo(pid, config.name, task))
                     # In any case, we found a match, so we must stop iterating
                     # over the task types and handle the the next path
                     break
