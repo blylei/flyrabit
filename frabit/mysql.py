@@ -189,36 +189,6 @@ class MySQL:
         conn = self.connect()
         return conn.server_version
 
-    @property
-    def server_txt_version(self):
-        """
-        Human readable version of MySQL (calculated from server_version)
-
-        :rtype: str|None
-        """
-        try:
-            conn = self.connect()
-            major = int(conn.server_version / 10000)
-            minor = int(conn.server_version / 100 % 100)
-            patch = int(conn.server_version % 100)
-            return "{major}.{minor}.{patch}".format(major=major, minor=minor, patch=patch)
-        except MysqlConnectError as e:
-            _logger.debug("Error retrieving MySQL version: {}".format(force_str(e).strip()))
-            return None
-
-    @property
-    def server_major_version(self):
-        """
-        MySQL major version (calculated from server_txt_version)
-
-        :rtype: str|None
-        """
-        result = self.server_txt_version
-        if result is not None:
-            return simplify_version(result)
-        return None
-
-
 class MySQLConnection(MySQL):
     """
     This class represents a standard client connection to a MySQL server.
