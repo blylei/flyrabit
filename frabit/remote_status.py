@@ -8,7 +8,7 @@ Remote Status module
 
 A Remote Status class implements a standard interface for
 retrieving and caching the results of a remote component
-(such as Postgres server, WAL archiver, etc.). It follows
+(such as MySQL server, WAL archiver, etc.). It follows
 the Mixin pattern.
 """
 
