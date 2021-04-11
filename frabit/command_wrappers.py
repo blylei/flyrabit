@@ -318,8 +318,8 @@ class Command:
         self.out = '\n'.join(out)
         self.err = '\n'.join(err)
 
-        _logger.debug("Command stdout: %s", self.out)
-        _logger.debug("Command stderr: %s", self.err)
+        _logger.debug("Command stdout: {}".format(self.out))
+        _logger.debug("Command stderr: {}".format(self.err))
 
         # Raise if check and the return code is not in the allowed list
         if check:
@@ -406,7 +406,7 @@ class Command:
 
         # Remove the closed pipe from the object
         self.pipe = None
-        _logger.debug("Command return code: %s", self.ret)
+        _logger.debug("Command return code: {}".format(self.ret))
 
         # Raise if check and the return code is not in the allowed list
         if check:
@@ -642,14 +642,13 @@ class MySQLClient(Command):
     """
     This is a list of command names to be used to find the installed command.
     """
-    def __init__(self, connection, command, version=None, app_name=None, path=None, **kwargs):
+    def __init__(self, connection, command, version=None, path=None, **kwargs):
         """
         Constructor
 
         :param MySQL connection: an object representing a database connection
         :param str command: the command to use
         :param Version version: the command version
-        :param str app_name: the application name to use for the connection
         :param str path: additional path for executable retrieval
         """
         Command.__init__(self, command, path=path, **kwargs)
@@ -680,17 +679,6 @@ class MySQLClient(Command):
         # exists in PATH is not sufficient. Debian will install wrappers for
         # all commands, even if the real command doesn't work.
         # This is an example of what can happen in this case:
-        #
-        # ```
-        # $ pg_receivewal --version; echo $?
-        # Error: pg_wrapper: pg_receivewal was not found in
-        #   /usr/lib/postgresql/9.6/bin
-        # 1
-        # $ pg_receivexlog --version; echo $?
-        # pg_receivexlog (PostgreSQL) 9.6.3
-        # 0
-        # ```
-        #
         # That means we should not only ensure the existence of the command,
         # but we also need to invoke the command to see if it is a shim or not.
 
@@ -712,8 +700,7 @@ class MySQLClient(Command):
                 if not full_path:
                     continue
 
-                # It exists, let's try invoking it with `--version` to check if
-                # it's real or not.
+                # It exists, let's try invoking it with `--version` to check if it's real or not.
                 try:
                     command = Command(full_path, path=path, check=True)
                     command("--version")
@@ -830,8 +817,7 @@ class Mysqlbinlog(MySQLClient):
         :param bool check: check if the return value is in the list of allowed values of the Command obj
         :param List[str] args: additional arguments
         """
-        MySQLClient.__init__(self, connection=connection, command=command, version=version, app_name=app_name,
-                             check=check, **kwargs)
+        MySQLClient.__init__(self, connection=connection, command=command, version=version, check=check, **kwargs)
 
         self.args += ["--raw", "--no-loop", "--no-password", "--directory={}".format(destination)]
 
