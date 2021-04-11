@@ -783,7 +783,7 @@ class XtraBackup(MySQLClient):
         MySQLClient.__init__(self, connection=connection, command=command, version=version, check=check, **kwargs)
 
         # Set the backup destination
-        self.args += ['-v', '--no-password', '--targetdir={}'.format(targetdir)]
+        self.args += ['-v', '--targetdir={}'.format(targetdir)]
         # Manage additional args
         if args:
             self.args += args
@@ -819,7 +819,7 @@ class Mysqlbinlog(MySQLClient):
         """
         MySQLClient.__init__(self, connection=connection, command=command, version=version, check=check, **kwargs)
 
-        self.args += ["--raw", "--no-loop", "--no-password", "--directory={}".format(destination)]
+        self.args += ["--raw", "--result-file={}".format(destination)]
 
         # Manage additional args
         if args:
@@ -835,7 +835,6 @@ class Mysqldump(MySQLClient):
 
     def __init__(self,
                  connection,
-                 destination,
                  command,
                  version=None,
                  app_name=None,
@@ -860,7 +859,7 @@ class Mysqldump(MySQLClient):
             version=version, app_name=app_name,
             check=check, **kwargs)
 
-        self.args += ["--verbose", "--no-loop", "--no-password", "--directory={}".format(destination)]
+        self.args += ["--verbose"]
         # Manage additional args
         if args:
             self.args += args
@@ -894,7 +893,7 @@ class Mysqlpump(MySQLClient):
         """
         MySQLClient.__init__(self, connection=connection, command=command, version=version, check=check, **kwargs)
 
-        self.args += ["--verbose", "--no-loop", "--no-password", "--directory={}".format(destination)]
+        self.args += ["--verbose"]
 
         # Manage additional args
         if args:
