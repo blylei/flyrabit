@@ -22,6 +22,8 @@ from abc import ABCMeta, abstractmethod
 
 import frabit
 from frabit import output
+from frabit.command_wrappers import XtraBackup, Mysqldump, Mysqlpump, Mysqlbinlog
+from frabit.config import parse_backup_method
 
 
 _logger = logging.getLogger(__name__)
@@ -60,7 +62,7 @@ class PhysicalBackup(BackupEngine):
     """调用xreabackup来执行物理备份任务"""
     def __init__(self):
         """NONE"""
-        pass
+        XtraBackup
 
     def full_backup(self):
         """执行全量备份任务"""
@@ -79,7 +81,7 @@ class LogicalBackup(BackupEngine):
 
     def all_dbs_backup(self):
         """mysqldump --all-databases:对指定实例上的所有库进行备份"""
-        pass
+        Mysqldump
 
     def some_dbs_backup(self):
         """mysqldump --databases:对指定实例上的部分库进行备份"""
@@ -98,7 +100,7 @@ class BinlogBackup(BackupEngine):
 
     def binlog_backup(self):
         """对binlog进行备份"""
-        pass
+        Mysqlbinlog
 
 
 class BackupStrategy(ABCMeta):

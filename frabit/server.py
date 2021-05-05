@@ -188,10 +188,6 @@ class Server(RemoteStatusMixin):
         self.path = self._build_path(self.config.path_prefix)
         self.process_manager = ProcessManager(self.config)
 
-        # If 'primary_ssh_command' is specified, the source of the backup
-        # for this server is a Frabit installation (not a Mysql server)
-        self.passive_node = config.primary_ssh_command is not None
-
         self.enforce_retention_policies = False
         self.mysqld = None
         self.streaming = None
@@ -434,16 +430,14 @@ class Server(RemoteStatusMixin):
 
     def close(self):
         """
-        Close all the open connections to PostgreSQL
+        Close all the open connections to MySQL
         """
         if self.mysqld:
             self.mysqld.close()
-        if self.streaming:
-            self.streaming.close()
 
     def check(self, check_strategy=__default_check_strategy):
         """
-        Implements the 'server check' command and makes sure SSH and PostgreSQL
+        Implements the 'server check' command and makes sure SSH and MySQL
         connections work properly. It checks also that backup directories exist
         (and if not, it creates them).
 
@@ -459,7 +453,7 @@ class Server(RemoteStatusMixin):
                 self.check_archive(check_strategy)
                 # Mysql configuration is not available on passive nodes
                 if not self.passive_node:
-                    self.check_postgres(check_strategy)
+                    self.check_mysql(check_strategy)
                 # Check frabit directories from frabit configuration
                 self.check_directories(check_strategy)
                 # Check retention policies
@@ -581,14 +575,14 @@ class Server(RemoteStatusMixin):
                   '%s, max %s' % (file_count, max_incoming_wal)
             check_strategy.result(self.config.name, False, hint=msg)
 
-    def check_postgres(self, check_strategy):
+    def check_mysql(self, check_strategy):
         """
-        Checks PostgreSQL connection
+        Checks MySQL connection
 
         :param CheckStrategy check_strategy: the strategy for the management
              of the results of the various checks
         """
-        check_strategy.init_check('PostgreSQL')
+        check_strategy.init_check('MySQL')
         # Take the status of the remote server
         remote_status = self.get_remote_status()
         if remote_status.get('server_txt_version'):
@@ -613,21 +607,6 @@ class Server(RemoteStatusMixin):
                     check='no access to backup functions'
                 )
 
-        if 'streaming_supported' in remote_status:
-            check_strategy.init_check("PostgreSQL streaming")
-            hint = None
-
-            # If a streaming connection is available,
-            # add its status to the output of the check
-            if remote_status['streaming_supported'] is None:
-                hint = remote_status['connection_error']
-            elif not remote_status['streaming_supported']:
-                hint = ('Streaming connection not supported'
-                        ' for PostgreSQL < 9.2')
-            check_strategy.result(self.config.name,
-                                  remote_status.get('streaming'), hint=hint)
-        # Check wal_level parameter: must be different from 'minimal'
-        # the parameter has been introduced in postgres >= 9.0
         if 'wal_level' in remote_status:
             check_strategy.init_check("wal_level")
             if remote_status['wal_level'] != 'minimal':
@@ -728,7 +707,7 @@ class Server(RemoteStatusMixin):
                 self._make_directories()
             except OSError as e:
                 check_strategy.result(self.config.name, False,
-                                      "%s: %s" % (e.filename, e.strerror))
+                                      "{filename}: {strerror}".format(filename=e.filename, strerror=e.strerror))
             else:
                 check_strategy.result(self.config.name, True)
 
@@ -744,7 +723,7 @@ class Server(RemoteStatusMixin):
         if len(self.config.msg_list):
             check_strategy.result(self.config.name, False)
             for conflict_paths in self.config.msg_list:
-                output.info("\t\t%s" % conflict_paths)
+                output.info("\t\t{}".format(conflict_paths))
 
     def check_retention_policy_settings(self, check_strategy):
         """
@@ -777,9 +756,9 @@ class Server(RemoteStatusMixin):
             # format the output
             check_strategy.result(
                 self.config.name, backup_age[0],
-                hint="interval provided: %s, latest backup age: %s" % (
-                    human_readable_timedelta(
-                        self.config.last_backup_maximum_age), backup_age[1]))
+                hint="interval provided:{max_age}, latest backup age:{age}".format(
+                    max_age=human_readable_timedelta(self.config.last_backup_maximum_age), age=backup_age[1])
+            )
         else:
             # last_backup_maximum_age provided by the user
             check_strategy.result(
@@ -803,7 +782,7 @@ class Server(RemoteStatusMixin):
         check_strategy.result(
             self.config.name,
             len(errors) == 0,
-            hint=WalArchiver.summarise_error_files(errors)
+            hint=BinlogArchiver.summarise_error_files(errors)
         )
 
     def check_identity(self, check_strategy):
@@ -859,9 +838,9 @@ class Server(RemoteStatusMixin):
         else:
             check_strategy.result(self.config.name, True)
 
-    def status_postgres(self):
+    def status_mysql(self):
         """
-        Status of PostgreSQL server
+        Status of MySQL server
         """
         remote_status = self.get_remote_status()
         if remote_status['server_txt_version']:
@@ -920,10 +899,10 @@ class Server(RemoteStatusMixin):
                           "retention_policies",
                           "Retention policies",
                           "enforced "
-                          "(mode: %s, retention: %s, WAL retention: %s)" % (
-                              self.config.retention_policy_mode,
-                              self.config.retention_policy,
-                              self.config.wal_retention_policy))
+                          "(mode:{mode}, retention: {retention}, binlog retention: {bin_retention})".format(
+                              mode=self.config.retention_policy_mode,
+                              retention=self.config.retention_policy,
+                              bin_retention=self.config.binlog_retention_policy))
         else:
             output.result('status', self.config.name,
                           "retention_policies",
@@ -969,12 +948,9 @@ class Server(RemoteStatusMixin):
         :rtype: dict[str, None|str]
         """
         result = {}
-        # Merge status for a postgres connection
+        # Merge status for a MySQL connection
         if self.mysqld:
             result.update(self.mysqld.get_remote_status())
-        # Merge status for a streaming connection
-        if self.streaming:
-            result.update(self.streaming.get_remote_status())
         # Merge status for each archiver
         for archiver in self.archivers:
             result.update(archiver.get_remote_status())
@@ -1223,8 +1199,7 @@ class Server(RemoteStatusMixin):
                 if self.enforce_retention_policies and \
                         retention_status[backup.backup_id] != BackupInfo.VALID:
                     rstatus = retention_status[backup.backup_id]
-            output.result('list_backup', backup, backup_size, wal_size,
-                          rstatus)
+            output.result('list_backup', backup, backup_size, wal_size, rstatus)
 
     def get_backup(self, backup_id):
         """
@@ -1254,8 +1229,7 @@ class Server(RemoteStatusMixin):
         """
         return self.backup_manager.get_next_backup(backup_id)
 
-    def get_required_xlog_files(self, backup, target_tli=None,
-                                target_time=None, target_xid=None):
+    def get_required_xlog_files(self, backup, target_tli=None, target_time=None, target_xid=None):
         """
         Get the xlog files required for a recovery
         """

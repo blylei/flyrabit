@@ -17,7 +17,7 @@ from frabit.lock import ServerWalReceiveLock
 _logger = logging.getLogger(__name__)
 
 
-class ProcessInfo(object):
+class ProcessInfo:
     """
     frabit process representation
     """

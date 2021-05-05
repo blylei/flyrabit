@@ -269,14 +269,13 @@ class BinlogInfo(FieldListFile):
 
     name = Field('name', doc='base name of Binlog file')
     size = Field('size', load=int, doc='Binlog file size after compression')
-    time = Field('time', load=float, doc='Binlog file modification time '
-                                         '(seconds since epoch)')
+    time = Field('time', load=float, doc='Binlog file modification time (seconds since epoch)')
     compression = Field('compression', doc='compression type')
 
     @classmethod
     def from_file(cls, filename, unidentified_compression=None, **kwargs):
         """
-        Factory method to generate a WalFileInfo from a WAL file.
+        Factory method to generate a BinlogInfo from a binlog file.
 
         Every keyword argument will override any attribute from the provided
         file. If a keyword argument doesn't has a corresponding attribute
@@ -352,7 +351,7 @@ class BinlogInfo(FieldListFile):
 
         :param frabit.server.Server server: the server that owns the binlog file
         """
-        return os.path.join(server.config.wals_directory, self.relpath())
+        return os.path.join(server.config.binlog_directory, self.relpath())
 
 
 class BackupInfo(FieldListFile):
