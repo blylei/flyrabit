@@ -615,22 +615,7 @@ class Ssh(Command):
         # Prepares args for SUSE
         args = self._args_for_suse(args)
         # Invoke the base class method
-        return super(Rsync, self).get_output(*args, **kwargs)
-
-    def from_file_list(self, filelist, src, dst, *args, **kwargs):
-        """
-        This method copies filelist from src to dst.
-
-        Returns the return code of the rsync command
-        """
-        if 'stdin' in kwargs:
-            raise TypeError("from_file_list() doesn't support 'stdin' "
-                            "keyword argument")
-        input_string = ('\n'.join(filelist)).encode('UTF-8')
-        _logger.debug("from_file_list: {}".format(filelist))
-        kwargs['stdin'] = input_string
-        self.get_output('--files-from=-', src, dst, *args, **kwargs)
-        return self.ret
+        return super(Ssh, self).get_output(*args, **kwargs)
 
 
 class FrabitSubProcess:
